@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:docx_to_text/docx_to_text.dart';
+import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:xml/xml.dart';
 
 import '../core/constants/teleprompter_constants.dart';
 import '../models/song.dart';
@@ -51,11 +52,42 @@ class SongImporter {
     }
 
     final text = extension == 'docx'
-        ? docxToText(bytes)
+        ? _extractDocxText(bytes)
         : utf8.decode(bytes, allowMalformed: true);
     if (text.trim().isEmpty) return null;
 
     final title = file.name.replaceFirst(RegExp(r'\.[^.]+$'), '').trim();
     return Song(title: title.isEmpty ? 'Canción' : title, text: text.trim());
+  }
+
+  String _extractDocxText(Uint8List bytes) {
+    final documentFile =
+        ZipDecoder().decodeBytes(bytes).findFile('word/document.xml');
+    if (documentFile == null) {
+      throw const FormatException('El documento no contiene texto principal.');
+    }
+
+    final document = XmlDocument.parse(utf8.decode(documentFile.content));
+    final paragraphs = document.findAllElements('w:p');
+    return paragraphs.map(_extractParagraphText).join('\n');
+  }
+
+  String _extractParagraphText(XmlElement paragraph) =>
+      paragraph.nodes.map(_extractTextNode).join();
+
+  String _extractTextNode(XmlNode node) {
+    if (node is! XmlElement) return '';
+
+    switch (node.name.local) {
+      case 't':
+        return node.innerText;
+      case 'br':
+      case 'cr':
+        return '\n';
+      case 'tab':
+        return '\t';
+      default:
+        return node.nodes.map(_extractTextNode).join();
+    }
   }
 }

@@ -11,7 +11,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   file_picker: ^13.1.0
-  docx_to_text: ^1.0.1
+  archive: ^3.6.1
+  xml: ^6.6.1
   shared_preferences: ^2.3.2
 
 dev_dependencies:
